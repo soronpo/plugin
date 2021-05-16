@@ -23,9 +23,9 @@ import scala.language.implicitConversions
 import collection.mutable
 
 extension (clsSym : Symbol) 
-  def isChildOf(parentFullName : String)(using Context) : Boolean = 
+  def inherits(parentFullName : String)(using Context) : Boolean = 
     if (clsSym.isClass)
-      clsSym.asClass.parentSyms.exists(ps => ps.fullName.toString == parentFullName || ps.isChildOf(parentFullName))
+      clsSym.asClass.parentSyms.exists(ps => ps.fullName.toString == parentFullName || ps.inherits(parentFullName))
     else false
 
 
@@ -49,7 +49,7 @@ class OnCreateEventsPhase(setting: Setting) extends PluginPhase {
           val sym = id.symbol
           if (sym.isClass)
             val clsSym = sym.asClass
-            if (clsSym.isChildOf("counter.OnCreateEvents")) Some(clsSym)
+            if (clsSym.inherits("counter.OnCreateEvents")) Some(clsSym)
             else None
           else None
         case Apply(tree, tpt) => unapply(tree)
