@@ -7,6 +7,5 @@ class Plugin extends StandardPlugin {
   override val description: String = "Count method calls"
 
   def init(options: List[String]): List[PluginPhase] =
-    val setting = new Setting(options.headOption)
-    (new OnCreateEventsPhase(setting)) :: (new MetaContextPhase(setting)) :: Nil
+    (new OnCreateEventsPhase) :: Nil
 }

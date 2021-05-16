@@ -1,4 +1,4 @@
-val dottyVersion = "3.0.0-RC3"
+val dottyVersion = "3.0.0"
 val libVersion = "0.1.0"
 val org = "org.mycompany"
 
@@ -30,12 +30,6 @@ lazy val hello = project
     name := "hello",
     version := "0.1.0",
     scalaVersion := dottyVersion,
-
-    scalacOptions ++= Seq(
-      "-P:counter:hello/counter.yml",
-      "-Xprint:pickler",
-      "-Xprint:MetaContext"
-    ),
 
     libraryDependencies += "org.mycompany" %% "scala-counter-runtime" % "0.1.0",
     libraryDependencies += compilerPlugin("org.mycompany" %% "scala-counter-plugin" % "0.1.0")

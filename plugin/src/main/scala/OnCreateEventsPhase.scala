@@ -28,7 +28,7 @@ extension (clsSym : Symbol)
     else false
 
 
-class OnCreateEventsPhase(setting: Setting) extends PluginPhase {
+class OnCreateEventsPhase extends PluginPhase {
   import tpd._
 
   val phaseName = "OnCreateEvents"
@@ -39,8 +39,6 @@ class OnCreateEventsPhase(setting: Setting) extends PluginPhase {
   val ignore = mutable.Set.empty[Tree]
 
   private object OnCreateEventsInstance:
-    def apply(clsSym : ClassSymbol, tree : Tree)(using Context): Tree =
-      Select(tree, clsSym.requiredMethodRef("onCreate"))
     @tailrec def unapply(tree : Tree)(using Context) : Option[ClassSymbol] = 
       tree match 
         case Apply(Select(New(id),_),_) => 
@@ -61,15 +59,9 @@ class OnCreateEventsPhase(setting: Setting) extends PluginPhase {
     if (!tree.tpe.isContextualMethod && !ignore.contains(tree)) 
       tree match 
         case OnCreateEventsInstance(clsSym) => 
-          println("replacing")
-          println(tree)
-          OnCreateEventsInstance(clsSym, tree) 
+          Select(tree, clsSym.requiredMethodRef("onCreate")) 
         case _ => tree
     else tree
-  
-  override def prepareForValDef(tree: ValDef)(using Context): Context = 
-    println("ValDef: " + tree.rhs)
-    ctx
 
 }
 
