@@ -22,7 +22,7 @@ object Hello {
     val nb2 = newBar   
     val plus = nb1 + nb2
     val plus3 = nb1 + nb2 + nb1 
-    val barPlus = new Bar + nb1              
+    val barPlus = new Bar + nb1
     val fooClsBlock =  
       new Foo(1, 2)  
       println("fooBlock")      

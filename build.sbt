@@ -32,9 +32,8 @@ lazy val hello = project
     scalaVersion := dottyVersion,
 
     scalacOptions ++= Seq(
-      "-P:counter:hello/counter.yml",
       "-Xprint:pickler",
-      "-Xprint:MetaContext"
+      "-Xprint:OnCreateEvents"
     ),
 
     libraryDependencies += "org.mycompany" %% "scala-counter-runtime" % "0.1.0",

@@ -15,6 +15,7 @@ import ast.Trees._
 import ast.tpd
 import StdNames.nme
 import Names._
+import Types._
 import Constants.Constant
 
 import annotation.tailrec
@@ -41,7 +42,8 @@ class OnCreateEventsPhase(setting: Setting) extends PluginPhase {
   private object OnCreateEventsInstance:
     def apply(clsSym : ClassSymbol, tree : Tree)(using Context): Tree =
       Select(tree, clsSym.requiredMethodRef("onCreate"))
-    @tailrec def unapply(tree : Tree)(using Context) : Option[ClassSymbol] = 
+        .withType(TermRef(tree.tpe, clsSym.requiredMethod("onCreate")))
+    @tailrec def unapply(tree : Tree)(using Context) : Option[ClassSymbol] =
       tree match 
         case Apply(Select(New(id),_),_) => 
           val sym = id.symbol
@@ -61,15 +63,9 @@ class OnCreateEventsPhase(setting: Setting) extends PluginPhase {
     if (!tree.tpe.isContextualMethod && !ignore.contains(tree)) 
       tree match 
         case OnCreateEventsInstance(clsSym) => 
-          println("replacing")
-          println(tree)
           OnCreateEventsInstance(clsSym, tree) 
         case _ => tree
     else tree
-  
-  override def prepareForValDef(tree: ValDef)(using Context): Context = 
-    println("ValDef: " + tree.rhs)
-    ctx
 
 }
 
