@@ -41,14 +41,16 @@ class MetaContextPhase(setting: Setting) extends PluginPhase {
         case _ => None
 
   val nameMap = mutable.Map.empty[Tree, String]
+  val ignore = mutable.Set.empty[Tree]
 
   override def transformApply(tree: Apply)(using Context): Tree = 
-    if (!tree.tpe.isContextualMethod) 
+    if (!ignore.contains(tree)) 
       tree match 
         case ContextArg(argTree) =>
           // println(s"method ${tree.symbol.enclosingMethod}")
           // println(PosStr(tree))
           if (nameMap.get(tree).isEmpty)
+            println(tree)
             report.warning(nameMap.get(tree).toString, tree.srcPos)
           tree
         case _ => tree
@@ -63,16 +65,20 @@ class MetaContextPhase(setting: Setting) extends PluginPhase {
       case _ =>
     ctx
   
+  @tailrec private def ignoreInternalApplies(tree : Apply)(using Context) : Unit = 
+    tree.fun match 
+      case apply : Apply => 
+        ignore += apply
+        ignoreInternalApplies(apply)
+      case _ =>
+  
   override def prepareForValDef(tree: ValDef)(using Context): Context = 
     val nameStr = tree.symbol.name.toString
-    if (nameStr == "pp")
-      println(tree.rhs.show)
-      println(tree.rhs)
-      println(tree.tpe.isContextualMethod)
-
     @tailrec def nameit(tree : Tree) : Unit = 
       tree match 
-        case apply : Apply => nameMap += (apply -> nameStr)
+        case apply : Apply => 
+          ignoreInternalApplies(apply)
+          nameMap += (apply -> nameStr)
         case Block(TypeDef(tpn, cls : Template) :: _, expr) if tpn.toString == "$anon"=> 
           cls.parents.foreach(p => nameMap += (p -> nameStr))
         case block : Block => nameit(block.expr)
