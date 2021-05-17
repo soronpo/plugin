@@ -18,52 +18,72 @@ import Names._
 import Constants.Constant
 import Types._
 import scala.language.implicitConversions
-
+import collection.mutable
+import annotation.tailrec
 
 class MetaContextPhase(setting: Setting) extends PluginPhase {
   import tpd._
 
   val phaseName = "MetaContext"
 
-  override val runsAfter = Set("OnCreateEvents")
+  override val runsAfter = Set(transform.Pickler.name)
   override val runsBefore = Set(transform.FirstTransform.name)
-  def PosStr(sym : Symbol)(using Context) : String = s"${sym.startPos.source.path}:${sym.startPos.line}:${sym.startPos.column}"
+  def PosStr(tree : Tree)(using Context) : String = 
+    val pos = tree.sourcePos.startPos
+    s"${pos.source.path}:${pos.line}:${pos.column}"
 
-  // private object ContextArg:
-  //   def unapply(tree : Tree)(using Context) : Option[Tree] = 
-  //     val sym = tree.tpe.typeSymbol
-  //     if (sym.isChildOf("counter.MetaContext"))
-  //       val clsSym = sym.asClass
-  //       // println(clsSym)
-  //       Some(tree)
-  //     else None
+  private object ContextArg:
+    def unapply(tree : Tree)(using Context) : Option[Tree] = 
+      tree match
+        case Apply(tree, args) => args.collectFirst {
+          case a if a.tpe.typeSymbol.inherits("counter.MetaContext") => a
+        }.orElse(unapply(tree))
+        case _ => None
 
-  // private object ContextApply:
-  //   def unapply(tree : Apply)(using Context) : Option[Tree] = 
-  //     val sym = tree.tpe.typeSymbol
-  //     if (sym.isChildOf("counter.MetaContext"))
-  //       val clsSym = sym.asClass
-  //       // println(clsSym)
-  //       Some(tree)
-  //     else None
+  val nameMap = mutable.Map.empty[Tree, String]
 
-  // override def transformApply(tree: Apply)(using Context): Tree = 
-  //   var changed : Boolean = false
-  //   val args = tree.args.map {
-  //     case ContextArg(argTree) => 
-  //       changed = true
-        
-  //       println(s"sym ${tree.symbol} ${PosStr(tree.symbol)}")
-  //       println(s"own ${tree.symbol.owner} ${PosStr(tree.symbol.owner)}")
-  //       argTree
-  //     case tree => tree
-  //   }
-  //   if (changed) Apply(tree.fun, args)
-  //   else tree
+  override def transformApply(tree: Apply)(using Context): Tree = 
+    if (!tree.tpe.isContextualMethod) 
+      tree match 
+        case ContextArg(argTree) =>
+          // println(s"method ${tree.symbol.enclosingMethod}")
+          // println(PosStr(tree))
+          if (nameMap.get(tree).isEmpty)
+            report.warning(nameMap.get(tree).toString, tree.srcPos)
+          tree
+        case _ => tree
+    else tree
+
+  val localPattern = "\\<local (.*)\\$\\>".r
+  override def prepareForTemplate(tree: Template)(using Context): Context = 
+    val nameStr = tree.symbol.name.toString 
+    tree.symbol.name.toString match
+      case localPattern(name) => 
+        tree.parents.foreach(p => nameMap += (p -> name))
+      case _ =>
+    ctx
   
-  // override def transformValDef(tree: ValDef)(using Context): Tree = 
-  //   tree.rhs match 
-  //     case ContextApply()
+  override def prepareForValDef(tree: ValDef)(using Context): Context = 
+    val nameStr = tree.symbol.name.toString
+    if (nameStr == "pp")
+      println(tree.rhs.show)
+      println(tree.rhs)
+      println(tree.tpe.isContextualMethod)
+
+    @tailrec def nameit(tree : Tree) : Unit = 
+      tree match 
+        case apply : Apply => nameMap += (apply -> nameStr)
+        case Block(TypeDef(tpn, cls : Template) :: _, expr) if tpn.toString == "$anon"=> 
+          cls.parents.foreach(p => nameMap += (p -> nameStr))
+        case block : Block => nameit(block.expr)
+        case _ => 
+    nameit(tree.rhs)
+    ctx
+
+  override def transformUnit(tree: Tree)(using Context): Tree = 
+    report.error("moshe")
+    tree
+
 
 }
 

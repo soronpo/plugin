@@ -33,7 +33,7 @@ lazy val hello = project
 
     scalacOptions ++= Seq(
       "-Xprint:pickler",
-      "-Xprint:OnCreateEvents"
+      "-Xprint:MetaContext",
     ),
 
     libraryDependencies += "org.mycompany" %% "scala-counter-runtime" % "0.1.0",

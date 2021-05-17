@@ -34,7 +34,7 @@ class OnCreateEventsPhase(setting: Setting) extends PluginPhase {
 
   val phaseName = "OnCreateEvents"
 
-  override val runsAfter = Set(transform.Pickler.name)
+  override val runsAfter = Set("MetaContext")
   override val runsBefore = Set(transform.FirstTransform.name)
   
   val ignore = mutable.Set.empty[Tree]
