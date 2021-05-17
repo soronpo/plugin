@@ -2,8 +2,6 @@ val dottyVersion = "3.0.0-RC3"
 val libVersion = "0.1.0"
 val org = "org.mycompany"
 
-autoCompilerPlugins := true
-
 lazy val plugin = project
   .settings(
     name := "scala-counter-plugin",
@@ -11,6 +9,8 @@ lazy val plugin = project
     version := libVersion,
 
     scalaVersion := dottyVersion,
+    crossTarget := target.value / s"scala-${scalaVersion.value}", // workaround for https://github.com/sbt/sbt/issues/5097
+    crossVersion := CrossVersion.full,
 
     libraryDependencies += "org.scala-lang" %% "scala3-compiler" % dottyVersion % "provided"
   )
@@ -31,15 +31,22 @@ lazy val hello = project
     version := "0.1.0",
     scalaVersion := dottyVersion,
 
+    Compile / scalacOptions ++= {
+      val jar = (plugin / Compile / packageBin).value
+      Seq(
+        s"-Xplugin:${jar.getAbsolutePath}",
+        s"-Jdummy=${jar.lastModified}"
+      ) //borrowed from bm4
+    },
     scalacOptions ++= Seq(
       "-Xprint:pickler",
       "-Xprint:MetaContext",
     ),
 
-    libraryDependencies += "org.mycompany" %% "scala-counter-runtime" % "0.1.0",
-    libraryDependencies += compilerPlugin("org.mycompany" %% "scala-counter-plugin" % "0.1.0")
-  ).dependsOn(runtime)
+    // libraryDependencies += "org.mycompany" %% "scala-counter-runtime" % "0.1.0",
+    // libraryDependencies += compilerPlugin("org.mycompany" %% "scala-counter-plugin" % "0.1.0")
+  ).dependsOn(plugin, runtime)
 
 
 lazy val root = project
-  .aggregate(plugin, runtime)
+  .aggregate(plugin, runtime, hello)
