@@ -28,21 +28,28 @@ class MetaContextPhase(setting: Setting) extends PluginPhase {
 
   override val runsAfter = Set(transform.Pickler.name)
   override val runsBefore = Set(transform.FirstTransform.name)
+  var positionCls : ClassSymbol = _
   extension (tree : Tree)(using Context) 
     def simplePos : String = 
       val pos = tree.sourcePos.startPos
       s"${pos.source.path}:${pos.line}:${pos.column}"
-    def setName(nameOpt : Option[String]) : Tree = 
+    def setMeta(nameOpt : Option[String], srcPos : util.SrcPos, lateConstruction : Boolean) : Tree = 
       val nameOptTree = nameOpt match
         case Some(str) => 
           New(defn.SomeClass.typeRef.appliedTo(defn.StringType), Literal(Constant(str)) :: Nil)
         case None => 
           ref(defn.NoneModule.termRef)
-      val setNameSym = tree.symbol.requiredMethod("setName")
+      val setMetaSym = tree.symbol.requiredMethod("setMeta")
+      val fileNameTree = Literal(Constant(srcPos.startPos.source.path))
+      val lineTree = Literal(Constant(srcPos.startPos.line+1))
+      val columnTree = Literal(Constant(srcPos.startPos.column+1))
+      val positionTree = 
+        New(positionCls.typeRef, fileNameTree :: lineTree :: columnTree :: Nil)
+      val lateConstructionTree = Literal(Constant(lateConstruction))
       tree
-      .select(setNameSym)
-      .appliedTo(nameOptTree)
-      .withType(TermRef(tree.tpe, setNameSym))
+      .select(setMetaSym)
+      .appliedToArgs(nameOptTree :: positionTree :: lateConstructionTree :: Nil)
+      .withType(TermRef(tree.tpe, setMetaSym))
 
   extension (tree : Apply)(using Context) 
     def replaceArg(fromArg : Tree, toArg : Tree) : Tree =
@@ -80,9 +87,9 @@ class MetaContextPhase(setting: Setting) extends PluginPhase {
         val sym = argTree.symbol
         treeOwnerMap.get(tree) match 
           case Some(t : ValDef) =>
-            tree.replaceArg(argTree, argTree.setName(Some(t.name.toString)))
+            tree.replaceArg(argTree, argTree.setMeta(Some(t.name.toString), tree.srcPos, false))
           case Some(t : TypeDef) if t.name.toString.endsWith("$") => 
-            tree.replaceArg(argTree, argTree.setName(Some(t.name.toString.dropRight(1))))
+            tree.replaceArg(argTree, argTree.setMeta(Some(t.name.toString.dropRight(1)), tree.srcPos, false))
           case Some(t)  =>  //Def or Class
             contextDefs.get(sym.fixedFullName) match
               case Some(ct) if ct != t =>
@@ -90,8 +97,7 @@ class MetaContextPhase(setting: Setting) extends PluginPhase {
               case _ => //do nothing
             tree
           case _ => //Anonymous
-            println(s"Anonymous at ${tree.simplePos}")
-            tree
+            tree.replaceArg(argTree, argTree.setMeta(None, tree.srcPos, false))
       case _ => tree
     else tree
 
@@ -145,6 +151,7 @@ class MetaContextPhase(setting: Setting) extends PluginPhase {
     ctx
 
   override def prepareForUnit(tree: Tree)(using Context): Context = 
+    positionCls = requiredClass("counter.Position")
     if (tree.source.toString.contains("Hello"))
       println(tree.show) 
     ctx
