@@ -38,13 +38,10 @@ lazy val hello = project
         s"-Jdummy=${jar.lastModified}"
       ) //borrowed from bm4
     },
-    scalacOptions ++= Seq(
-      "-Xprint:pickler",
-      "-Xprint:MetaContext",
-    ),
-
-    // libraryDependencies += "org.mycompany" %% "scala-counter-runtime" % "0.1.0",
-    // libraryDependencies += compilerPlugin("org.mycompany" %% "scala-counter-plugin" % "0.1.0")
+    // scalacOptions ++= Seq(
+    //   "-Xprint:pickler",
+    //   "-Xprint:MetaContext",
+    // ),
   ).dependsOn(plugin, runtime)
 
 

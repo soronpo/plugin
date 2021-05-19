@@ -35,7 +35,7 @@ object Hello {
       new Foo(1, 2)   
       println("fooBlock")      
       new Foo(11, 12)  
-    case class FooCC(arg1 : Int, arg2 : Int) extends Foo(arg1, arg2)
+    case class FooCC(arg1 : Int, arg2 : Int)(using Context) extends Foo(arg1, arg2)
     
     val fooCC = FooCC(1, 2)
     val fooNewCC = new FooCC(1, 2)
@@ -43,14 +43,6 @@ object Hello {
   given ctx : Context = Context(Some("top"), Position.unknown, false)
   val top = new Top    
 
-  def main(args: Array[String]): Unit = {
-    foo(5)
-  }  
+  def main(args: Array[String]): Unit = {}  
 
-  def foo(x: Int): Unit =
-    if (x > 0)  
-      foo(x - 1)  
-    else bar()             
-
-  def bar(): Unit = println("hello")
 }
