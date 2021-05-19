@@ -67,6 +67,11 @@ class OnCreateEventsPhase(setting: Setting) extends PluginPhase {
         case _ => tree
     else tree
 
+  override def prepareForUnit(tree: Tree)(using Context): Context = 
+    if (tree.source.toString.contains("Hello"))
+      println(tree.show) 
+    ctx
+
 }
 
 

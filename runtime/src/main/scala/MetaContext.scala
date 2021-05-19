@@ -15,6 +15,7 @@ object Position:
 
 trait MetaContext {
   def setMeta(nameOpt : Option[String], position : Position, lateConstruction : Boolean) : this.type 
+  def setName(nameOpt : Option[String]) : this.type
   val nameOpt : Option[String] 
   val position : Position 
   val lateConstruction : Boolean 

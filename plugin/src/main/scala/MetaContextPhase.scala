@@ -28,10 +28,35 @@ class MetaContextPhase(setting: Setting) extends PluginPhase {
 
   override val runsAfter = Set(transform.Pickler.name)
   override val runsBefore = Set(transform.FirstTransform.name)
-  extension (tree : Tree)(using Context) def simplePos : String = 
-    val pos = tree.sourcePos.startPos
-    s"${pos.source.path}:${pos.line}:${pos.column}"
-  
+  extension (tree : Tree)(using Context) 
+    def simplePos : String = 
+      val pos = tree.sourcePos.startPos
+      s"${pos.source.path}:${pos.line}:${pos.column}"
+    def setName(nameOpt : Option[String]) : Tree = 
+      val nameOptTree = nameOpt match
+        case Some(str) => 
+          New(defn.SomeClass.typeRef.appliedTo(defn.StringType), Literal(Constant(str)) :: Nil)
+        case None => 
+          ref(defn.NoneModule.termRef)
+      val setNameSym = tree.symbol.requiredMethod("setName")
+      tree
+      .select(setNameSym)
+      .appliedTo(nameOptTree)
+      .withType(TermRef(tree.tpe, setNameSym))
+
+  extension (tree : Apply)(using Context) 
+    def replaceArg(fromArg : Tree, toArg : Tree) : Tree =
+      var changed = false
+      val repArgs = tree.args.map {a =>
+        if (a == fromArg) 
+          changed = true
+          toArg
+        else a
+      }
+      tree.fun match
+        case apply : Apply if !changed => Apply(apply.replaceArg(fromArg, toArg), tree.args)
+        case _ => Apply(tree.fun, repArgs)
+    
   val treeOwnerMap = mutable.Map.empty[Tree, Tree]
   val contextDefs = mutable.Map.empty[String, Tree]
   val ignore = mutable.Set.empty[Tree]
@@ -51,22 +76,26 @@ class MetaContextPhase(setting: Setting) extends PluginPhase {
     if (!ignore.contains(tree)) tree match 
       case ContextArg(argTree) =>
         val sym = argTree.symbol
-        treeOwnerMap.get(tree) match
+        treeOwnerMap.get(tree) match 
           case Some(t : DefDef) => 
             contextDefs.get(sym.fixedFullName) match
               case Some(ct) if ct != t =>
                 report.error(s"${t.symbol} is missing an implicit Context parameter", t.symbol)
               case _ => //do nothing
+            tree
           case Some(t : ValDef) =>
             println(s"Val ${t.name}")
+            tree.replaceArg(argTree, argTree.setName(Some(t.name.toString)))
           case Some(t : TypeDef) if t.name.toString.endsWith("$") => 
             println(s"Obj ${t.name.toString.dropRight(1)}")
+            tree
           case Some(t : TypeDef)  => 
             if (t != contextDefs(sym.fixedFullName))
               report.error(s"${t.symbol} is missing an implicit Context parameter", t.symbol)
+            tree
           case _ =>
             println(s"Anonymous at ${tree.simplePos}")
-        tree
+            tree
       case _ => tree
     else tree
 
