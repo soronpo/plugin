@@ -54,8 +54,10 @@ class MetaContextPhase(setting: Setting) extends PluginPhase {
         else a
       }
       tree.fun match
-        case apply : Apply if !changed => Apply(apply.replaceArg(fromArg, toArg), tree.args)
-        case _ => Apply(tree.fun, repArgs)
+        case apply : Apply if !changed =>
+          cpy.Apply(tree)(apply.replaceArg(fromArg, toArg), tree.args)
+        case _ => 
+          cpy.Apply(tree)(tree.fun, repArgs)
     
   val treeOwnerMap = mutable.Map.empty[Tree, Tree]
   val contextDefs = mutable.Map.empty[String, Tree]
@@ -73,7 +75,7 @@ class MetaContextPhase(setting: Setting) extends PluginPhase {
         case _ => None
 
   override def transformApply(tree: Apply)(using Context): Tree = 
-    if (!ignore.contains(tree)) tree match 
+    if (!ignore.exists(i => i.sameTree(tree))) tree match
       case ContextArg(argTree) =>
         val sym = argTree.symbol
         treeOwnerMap.get(tree) match 
@@ -90,8 +92,10 @@ class MetaContextPhase(setting: Setting) extends PluginPhase {
             println(s"Obj ${t.name.toString.dropRight(1)}")
             tree
           case Some(t : TypeDef)  => 
-            if (t != contextDefs(sym.fixedFullName))
-              report.error(s"${t.symbol} is missing an implicit Context parameter", t.symbol)
+            contextDefs.get(sym.fixedFullName) match
+              case Some(ct) if ct != t =>
+                report.error(s"${t.symbol} is missing an implicit Context parameter", t.symbol)
+              case _ => //do nothing
             tree
           case _ =>
             println(s"Anonymous at ${tree.simplePos}")

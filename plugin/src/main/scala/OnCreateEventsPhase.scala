@@ -41,7 +41,7 @@ class OnCreateEventsPhase(setting: Setting) extends PluginPhase {
 
   private object OnCreateEventsInstance:
     def apply(clsSym : ClassSymbol, tree : Tree)(using Context): Tree =
-      Select(tree, clsSym.requiredMethodRef("onCreate"))
+      tree.select(clsSym.requiredMethodRef("onCreate"))
         .withType(TermRef(tree.tpe, clsSym.requiredMethod("onCreate")))
     @tailrec def unapply(tree : Tree)(using Context) : Option[ClassSymbol] =
       tree match 
@@ -60,7 +60,7 @@ class OnCreateEventsPhase(setting: Setting) extends PluginPhase {
     ctx
 
   override def transformApply(tree: Apply)(using Context): Tree = 
-    if (!tree.tpe.isContextualMethod && !ignore.contains(tree)) 
+    if (!tree.tpe.isContextualMethod && !ignore.exists(i => i.sameTree(tree))) 
       tree match 
         case OnCreateEventsInstance(clsSym) => 
           OnCreateEventsInstance(clsSym, tree) 
