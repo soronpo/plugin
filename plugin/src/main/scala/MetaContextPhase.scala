@@ -55,9 +55,9 @@ class MetaContextPhase(setting: Setting) extends PluginPhase {
       }
       tree.fun match
         case apply : Apply if !changed =>
-          cpy.Apply(tree)(apply.replaceArg(fromArg, toArg), tree.args)
+          Apply(apply.replaceArg(fromArg, toArg), tree.args)
         case _ => 
-          cpy.Apply(tree)(tree.fun, repArgs)
+          Apply(tree.fun, repArgs)
     
   val treeOwnerMap = mutable.Map.empty[Tree, Tree]
   val contextDefs = mutable.Map.empty[String, Tree]
@@ -79,25 +79,17 @@ class MetaContextPhase(setting: Setting) extends PluginPhase {
       case ContextArg(argTree) =>
         val sym = argTree.symbol
         treeOwnerMap.get(tree) match 
-          case Some(t : DefDef) => 
-            contextDefs.get(sym.fixedFullName) match
-              case Some(ct) if ct != t =>
-                report.error(s"${t.symbol} is missing an implicit Context parameter", t.symbol)
-              case _ => //do nothing
-            tree
           case Some(t : ValDef) =>
-            println(s"Val ${t.name}")
             tree.replaceArg(argTree, argTree.setName(Some(t.name.toString)))
           case Some(t : TypeDef) if t.name.toString.endsWith("$") => 
-            println(s"Obj ${t.name.toString.dropRight(1)}")
-            tree
-          case Some(t : TypeDef)  => 
+            tree.replaceArg(argTree, argTree.setName(Some(t.name.toString.dropRight(1))))
+          case Some(t)  =>  //Def or Class
             contextDefs.get(sym.fixedFullName) match
               case Some(ct) if ct != t =>
                 report.error(s"${t.symbol} is missing an implicit Context parameter", t.symbol)
               case _ => //do nothing
             tree
-          case _ =>
+          case _ => //Anonymous
             println(s"Anonymous at ${tree.simplePos}")
             tree
       case _ => tree
@@ -106,7 +98,7 @@ class MetaContextPhase(setting: Setting) extends PluginPhase {
   val localPattern = "\\<local (.*)\\$\\>".r
   override def prepareForTypeDef(tree: TypeDef)(using Context): Context = 
     tree.rhs match
-      case template : Template if tree.name.toString != "$anon" => 
+      case template : Template if !tree.symbol.isAnonymousClass => 
         template.parents.foreach(p => treeOwnerMap += (p -> tree))
         addContextDef(tree)
       case _ => 
@@ -117,10 +109,8 @@ class MetaContextPhase(setting: Setting) extends PluginPhase {
       case apply : Apply => 
         ignoreInternalApplies(apply)
         treeOwnerMap += (apply -> ownerTree)
-      case Block(TypeDef(tpn, cls : Template) :: _, expr) if tpn.toString == "$anon"=> 
-        cls.parents.foreach{p => 
-          treeOwnerMap += (p -> ownerTree)
-        }
+      case Block((cls @ TypeDef(tpn, template : Template)) :: _, expr) if cls.symbol.isAnonymousClass => 
+        template.parents.foreach(p => treeOwnerMap += (p -> ownerTree))
       case block : Block => nameValOrDef(block.expr, ownerTree)
       case _ => 
   

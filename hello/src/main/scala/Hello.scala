@@ -1,6 +1,7 @@
 import counter.*
 object Hello extends App {
   class Bar(using Context) extends OnCreateEvents :
+    val nameOpt = summon[Context].nameOpt
     def +(that: Bar)(using Context): Bar = new Plus(this, that)
 
   class Plus(lhs: Bar, rhs: Bar)(using Context) extends Bar
@@ -19,7 +20,6 @@ object Hello extends App {
   def newBar(using Context): Bar = new Bar
 
   class Top(using Context):
-    val nameOpt = summon[Context].nameOpt
     object FooObj extends Foo(1, 2)
 
     case object FooCaseObj extends Foo(1, 2)
@@ -50,6 +50,6 @@ object Hello extends App {
 
   val top = new Top
 
-  println(top.nameOpt)
+  println(top.nb1.nameOpt)
 
 }
