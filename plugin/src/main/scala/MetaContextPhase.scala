@@ -30,9 +30,10 @@ class MetaContextPhase(setting: Setting) extends PluginPhase {
   override val runsBefore = Set(transform.FirstTransform.name)
   var positionCls : ClassSymbol = _
   extension (tree : Tree)(using Context) 
-    def simplePos : String = 
-      val pos = tree.sourcePos.startPos
-      s"${pos.source.path}:${pos.line}:${pos.column}"
+    def unique : String = 
+      val pos = tree.srcPos.startPos
+      val endPos = tree.srcPos.endPos
+      s"${pos.source.path}:${pos.line}:${pos.column}-${endPos.line}:${endPos.column}"
     def setMeta(nameOpt : Option[String], srcPos : util.SrcPos, lateConstruction : Boolean) : Tree = 
       val nameOptTree = nameOpt match
         case Some(str) => 
@@ -66,9 +67,9 @@ class MetaContextPhase(setting: Setting) extends PluginPhase {
         case _ => 
           Apply(tree.fun, repArgs)
     
-  val treeOwnerMap = mutable.Map.empty[Tree, Tree]
+  val treeOwnerMap = mutable.Map.empty[String, Tree]
   val contextDefs = mutable.Map.empty[String, Tree]
-  val ignore = mutable.Set.empty[Tree]
+  val ignore = mutable.Set.empty[String]
 
   extension (sym : Symbol) def fixedFullName(using Context) : String =
     sym.fullName.toString.replace("._$",".")
@@ -82,10 +83,10 @@ class MetaContextPhase(setting: Setting) extends PluginPhase {
         case _ => None
 
   override def transformApply(tree: Apply)(using Context): Tree = 
-    if (!ignore.exists(i => i.sameTree(tree))) tree match
+    if (!tree.tpe.isContextualMethod && !ignore.contains(tree.unique)) tree match
       case ContextArg(argTree) =>
         val sym = argTree.symbol
-        treeOwnerMap.get(tree) match 
+        treeOwnerMap.get(tree.unique) match 
           case Some(t : ValDef) =>
             tree.replaceArg(argTree, argTree.setMeta(Some(t.name.toString), tree.srcPos, false))
           case Some(t : TypeDef) if t.name.toString.endsWith("$") => 
@@ -105,7 +106,7 @@ class MetaContextPhase(setting: Setting) extends PluginPhase {
   override def prepareForTypeDef(tree: TypeDef)(using Context): Context = 
     tree.rhs match
       case template : Template if !tree.symbol.isAnonymousClass => 
-        template.parents.foreach(p => treeOwnerMap += (p -> tree))
+        template.parents.foreach(p => treeOwnerMap += (p.unique -> tree))
         addContextDef(tree)
       case _ => 
     ctx
@@ -113,10 +114,10 @@ class MetaContextPhase(setting: Setting) extends PluginPhase {
   @tailrec private def nameValOrDef(tree : Tree, ownerTree : Tree)(using Context) : Unit = 
     tree match 
       case apply : Apply => 
-        ignoreInternalApplies(apply)
-        treeOwnerMap += (apply -> ownerTree)
+        // ignoreInternalApplies(apply)
+        treeOwnerMap += (apply.unique -> ownerTree)
       case Block((cls @ TypeDef(tpn, template : Template)) :: _, expr) if cls.symbol.isAnonymousClass => 
-        template.parents.foreach(p => treeOwnerMap += (p -> ownerTree))
+        template.parents.foreach(p => treeOwnerMap += (p.unique -> ownerTree))
       case block : Block => nameValOrDef(block.expr, ownerTree)
       case _ => 
   
@@ -142,7 +143,7 @@ class MetaContextPhase(setting: Setting) extends PluginPhase {
   @tailrec private def ignoreInternalApplies(tree : Apply)(using Context) : Unit = 
     tree.fun match 
       case apply : Apply => 
-        ignore += apply
+        ignore += apply.unique
         ignoreInternalApplies(apply)
       case _ =>
   
