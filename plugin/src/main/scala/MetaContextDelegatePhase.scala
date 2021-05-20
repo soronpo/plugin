@@ -35,6 +35,11 @@ class MetaContextDelegatePhase(setting: Setting) extends CommonPhase {
       tree.symbol.annotations.exists(_.symbol.name.toString == "metaContextDelegate")
 
   override def transformApply(tree: Apply)(using Context): Tree =
+    if (tree.tpe.isParameterless)
+      if (tree.isContextDelegate)
+        println(tree)
+        // tree match
+          // case Apply(Apply(methodIdent,List(Apply(Apply(Select(New(Ident(Bar)),<init>),List()),List(Ident(x$1))))),methodArgs)
     tree
 
   override def prepareForTypeDef(tree: TypeDef)(using Context): Context =

@@ -53,7 +53,7 @@ class OnCreateEventsPhase(setting: Setting) extends CommonPhase {
     ctx
 
   override def transformApply(tree: Apply)(using Context): Tree = 
-    if (!tree.tpe.isContextualMethod && !ignore.exists(i => i.sameTree(tree))) 
+    if (tree.tpe.isParameterless && !ignore.exists(i => i.sameTree(tree))) 
       tree match 
         case OnCreateEventsInstance(clsSym) => 
           OnCreateEventsInstance(clsSym, tree) 

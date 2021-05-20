@@ -86,7 +86,7 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase {
   }
 
   override def transformApply(tree: Apply)(using Context): Tree = 
-    if (!tree.tpe.isContextualMethod && !ignore.contains(tree.unique)) tree match
+    if (tree.tpe.isParameterless && !ignore.contains(tree.unique)) tree match
       case ContextArg(argTree) =>
         val sym = argTree.symbol
         treeOwnerMap.get(tree.unique) match 
