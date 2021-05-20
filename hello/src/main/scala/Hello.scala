@@ -49,7 +49,7 @@ object Hello extends App {
     val fooCC = FooCC(1, 2)
     val fooNewCC = new FooCC(1, 2)
 
-  given ctx: Context = Context(Some("top"), Position.unknown, false)
+  given ctx: Context = Context(Some("top"), Position.unknown, false, None, Position.unknown)
 
   val top = new Top
 

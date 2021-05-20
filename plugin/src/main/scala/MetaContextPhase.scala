@@ -29,6 +29,19 @@ class MetaContextPhase(setting: Setting) extends PluginPhase {
   override val runsAfter = Set(transform.Pickler.name)
   override val runsBefore = Set(transform.FirstTransform.name)
   var positionCls : ClassSymbol = _
+  val treeOwnerMap = mutable.Map.empty[String, Tree]
+  val contextDefs = mutable.Map.empty[String, Tree]
+  val ignore = mutable.Set.empty[String]
+  var lateConstructionStack = List(false)
+
+  extension (srcPos : util.SrcPos)(using Context) def positionTree : Tree =
+    val fileNameTree = Literal(Constant(srcPos.startPos.source.path))
+    val lineStartTree = Literal(Constant(srcPos.startPos.line+1))
+    val columnStartTree = Literal(Constant(srcPos.startPos.column+1))
+    val lineEndTree = Literal(Constant(srcPos.endPos.line+1))
+    val columnEndTree = Literal(Constant(srcPos.endPos.column+1))
+    New(positionCls.typeRef, fileNameTree :: lineStartTree :: columnStartTree :: lineEndTree :: columnEndTree :: Nil)
+
   extension (tree : Tree)(using Context) 
     def unique : String = 
       val pos = tree.srcPos.startPos
@@ -41,15 +54,11 @@ class MetaContextPhase(setting: Setting) extends PluginPhase {
         case None => 
           ref(defn.NoneModule.termRef)
       val setMetaSym = tree.symbol.requiredMethod("setMeta")
-      val fileNameTree = Literal(Constant(srcPos.startPos.source.path))
-      val lineTree = Literal(Constant(srcPos.startPos.line+1))
-      val columnTree = Literal(Constant(srcPos.startPos.column+1))
-      val positionTree = 
-        New(positionCls.typeRef, fileNameTree :: lineTree :: columnTree :: Nil)
       val lateConstructionTree = Literal(Constant(lateConstruction))
+      val positionTree = srcPos.positionTree
       tree
       .select(setMetaSym)
-      .appliedToArgs(nameOptTree :: positionTree :: lateConstructionTree :: Nil)
+      .appliedToArgs(nameOptTree :: positionTree :: lateConstructionTree :: nameOptTree :: positionTree :: Nil)
       .withType(TermRef(tree.tpe, setMetaSym))
 
   extension (tree : Apply)(using Context) 
@@ -67,10 +76,6 @@ class MetaContextPhase(setting: Setting) extends PluginPhase {
         case _ => 
           Apply(tree.fun, repArgs)
     
-  val treeOwnerMap = mutable.Map.empty[String, Tree]
-  val contextDefs = mutable.Map.empty[String, Tree]
-  val ignore = mutable.Set.empty[String]
-  var lateConstructionStack = List(false)
 
   extension (sym : Symbol) def fixedFullName(using Context) : String =
     sym.fullName.toString.replace("._$",".")

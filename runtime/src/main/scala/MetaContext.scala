@@ -1,21 +1,17 @@
 package counter
 
-final case class Position(file : String, line : Int, column : Int) {
-  def > (that : Position) : Boolean = {
-    assert(file == that.file, "Can only compare positions within the same file")
-    line > that.line || (line == that.line && column > that.column)
-  }
-  def >= (that : Position) : Boolean = (this == that) || (this > that)
-  def < (that : Position) : Boolean = !(this >= that)
-  def <= (that : Position) : Boolean = !(this > that)
-  override def toString: String = s"$file:$line:$column"
-}
+final case class Position(file : String, lineStart : Int, columnStart : Int, lineEnd : Int, columnEnd : Int):
+  override def toString: String = s"$file:$lineStart:$columnStart"
 object Position:
-  val unknown = Position("", 0, 0)
+  val unknown = Position("", 0, 0, 0, 0)
 
 trait MetaContext {
-  def setMeta(nameOpt : Option[String], position : Position, lateConstruction : Boolean) : this.type 
-  def setName(nameOpt : Option[String]) : this.type
+  def setMeta(
+    nameOpt: Option[String], position: Position, lateConstruction: Boolean,
+    clsNameOpt: Option[String], clsPosition: Position
+  ) : this.type
+  def setName(name : String) : this.type
+  def anonymize : this.type
   val nameOpt : Option[String] 
   val position : Position 
   val lateConstruction : Boolean 
