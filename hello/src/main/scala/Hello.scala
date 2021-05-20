@@ -1,7 +1,7 @@
 import counter.*
 import annotation.targetName
 object Hello extends App {
-  class Bar(using val ctx : Context) extends OnCreateEvents :
+  class Bar(using val ctx : Context) extends OnCreateEvents, LateConstruction:
     val nameOpt = ctx.nameOpt
     def +(that: Bar)(using Context): Bar = new Plus(this, that)
 
@@ -20,8 +20,10 @@ object Hello extends App {
 
   def newBar(using Context): Bar = new Bar
 
-  class Top(using Context):
-    object FooObj extends Foo(1, 2)
+  class Top(using Context) extends Bar:
+    object FooObj extends Foo(1, 2):
+      new Bar
+      val insiderObj = new Bar
 
     case object FooCaseObj extends Foo(1, 2)
 
@@ -29,6 +31,7 @@ object Hello extends App {
     val -- = new Foo(1, 2)
     val fooCls2 = new Foo(1, 2) {
       val i = 1
+      new Bar
       val insider = new Bar
     }
     val internalFoo = new Internal.Foo(1, 2)

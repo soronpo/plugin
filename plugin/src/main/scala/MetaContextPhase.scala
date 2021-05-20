@@ -32,7 +32,7 @@ class MetaContextPhase(setting: Setting) extends PluginPhase {
   val treeOwnerMap = mutable.Map.empty[String, Tree]
   val contextDefs = mutable.Map.empty[String, Tree]
   val ignore = mutable.Set.empty[String]
-  var lateConstructionStack = List(false)
+  var clsStack = List.empty[TypeDef]
 
   extension (srcPos : util.SrcPos)(using Context) def positionTree : Tree =
     val fileNameTree = Literal(Constant(srcPos.startPos.source.path))
@@ -47,18 +47,28 @@ class MetaContextPhase(setting: Setting) extends PluginPhase {
       val pos = tree.srcPos.startPos
       val endPos = tree.srcPos.endPos
       s"${pos.source.path}:${pos.line}:${pos.column}-${endPos.line}:${endPos.column}"
-    def setMeta(nameOpt : Option[String], srcPos : util.SrcPos, lateConstruction : Boolean) : Tree = 
+    def setMeta(nameOpt : Option[String], srcTree : Tree) : Tree = 
       val nameOptTree = nameOpt match
-        case Some(str) => 
+        case Some(str) =>
           New(defn.SomeClass.typeRef.appliedTo(defn.StringType), Literal(Constant(str)) :: Nil)
-        case None => 
+        case None =>
           ref(defn.NoneModule.termRef)
       val setMetaSym = tree.symbol.requiredMethod("setMeta")
+      val clsTree = clsStack.head
+      val lateConstruction = 
+        clsTree.name.toString.contains("$") && clsTree.symbol.inherits("counter.LateConstruction") && 
+        clsTree.rhs.asInstanceOf[Template].parents.forall(p => !(p sameTree srcTree))
       val lateConstructionTree = Literal(Constant(lateConstruction))
-      val positionTree = srcPos.positionTree
+      val positionTree = srcTree.srcPos.positionTree 
+      val clsNameStr = 
+        if (clsTree.name.toString.contains("$")) clsTree.symbol.asClass.parentSyms.head.name.toString
+        else clsTree.name.toString
+      val clsNameOptTree = 
+        New(defn.SomeClass.typeRef.appliedTo(defn.StringType), Literal(Constant(clsNameStr.nameCheck(clsTree))) :: Nil)
+      val clsPositionTree = clsTree.srcPos.positionTree
       tree
       .select(setMetaSym)
-      .appliedToArgs(nameOptTree :: positionTree :: lateConstructionTree :: nameOptTree :: positionTree :: Nil)
+      .appliedToArgs(nameOptTree :: positionTree :: lateConstructionTree :: clsNameOptTree :: clsPositionTree :: Nil)
       .withType(TermRef(tree.tpe, setMetaSym))
 
   extension (tree : Apply)(using Context) 
@@ -106,14 +116,13 @@ class MetaContextPhase(setting: Setting) extends PluginPhase {
     if (!tree.tpe.isContextualMethod && !ignore.contains(tree.unique)) tree match
       case ContextArg(argTree) =>
         val sym = argTree.symbol
-        val lateConstruction = lateConstructionStack.head
         treeOwnerMap.get(tree.unique) match 
           case Some(t : ValDef) =>
             if (t.mods.is(Flags.Mutable)) 
               report.warning("Variable modifier for DSL constructed values is highly discouraged!\nConsider changing to `val`.", t.srcPos)
-            tree.replaceArg(argTree, argTree.setMeta(Some(t.name.toString.nameCheck(t)), tree.srcPos, lateConstruction))
+            tree.replaceArg(argTree, argTree.setMeta(Some(t.name.toString.nameCheck(t)), tree))
           case Some(t : TypeDef) if t.name.toString.endsWith("$") => 
-            tree.replaceArg(argTree, argTree.setMeta(Some(t.name.toString.dropRight(1).nameCheck(t)), tree.srcPos, lateConstruction))
+            tree.replaceArg(argTree, argTree.setMeta(Some(t.name.toString.dropRight(1).nameCheck(t)), tree))
           case Some(t)  =>  //Def or Class
             contextDefs.get(sym.fixedFullName) match
               case Some(ct) if ct != t =>
@@ -121,24 +130,23 @@ class MetaContextPhase(setting: Setting) extends PluginPhase {
               case _ => //do nothing
             tree
           case _ => //Anonymous
-            tree.replaceArg(argTree, argTree.setMeta(None, tree.srcPos, lateConstruction))
+            tree.replaceArg(argTree, argTree.setMeta(None, tree))
       case _ => tree
     else tree
 
   val localPattern = "\\<local (.*)\\$\\>".r
   override def prepareForTypeDef(tree: TypeDef)(using Context): Context = 
     tree.rhs match
-      case template : Template if !tree.symbol.isAnonymousClass => 
-        template.parents.foreach(p => treeOwnerMap += (p.unique -> tree))
-        addContextDef(tree)
-        lateConstructionStack = false :: lateConstructionStack
-      case template : Template if tree.symbol.isAnonymousClass => 
-        lateConstructionStack = true :: lateConstructionStack
+      case template : Template =>
+        if (!tree.symbol.isAnonymousClass)
+          template.parents.foreach(p => treeOwnerMap += (p.unique -> tree))
+          addContextDef(tree)
+        clsStack = tree :: clsStack
       case _ => 
     ctx
 
   override def transformTypeDef(tree: TypeDef)(using Context): Tree = 
-    lateConstructionStack = lateConstructionStack.drop(1)
+    clsStack = clsStack.drop(1)
     tree
 
 
