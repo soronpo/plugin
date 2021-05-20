@@ -8,5 +8,5 @@ class Plugin extends StandardPlugin {
 
   def init(options: List[String]): List[PluginPhase] =
     val setting = new Setting(options.headOption)
-    (new MetaContextPhase(setting)) :: (new OnCreateEventsPhase(setting)) :: Nil
+    (new MetaContextDelegatePhase(setting)) :: (new MetaContextGenPhase(setting)) :: (new OnCreateEventsPhase(setting)) :: Nil
 }

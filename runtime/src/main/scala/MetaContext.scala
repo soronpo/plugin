@@ -20,3 +20,5 @@ trait MetaContext {
 }
 
 trait LateConstruction
+
+class metaContextDelegate extends scala.annotation.StaticAnnotation

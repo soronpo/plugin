@@ -22,19 +22,12 @@ import annotation.tailrec
 import scala.language.implicitConversions
 import collection.mutable
 
-extension (clsSym : Symbol) 
-  def inherits(parentFullName : String)(using Context) : Boolean = 
-    if (clsSym.isClass)
-      clsSym.asClass.parentSyms.exists(ps => ps.fullName.toString == parentFullName || ps.inherits(parentFullName))
-    else false
-
-
-class OnCreateEventsPhase(setting: Setting) extends PluginPhase {
+class OnCreateEventsPhase(setting: Setting) extends CommonPhase {
   import tpd._
 
   val phaseName = "OnCreateEvents"
 
-  override val runsAfter = Set("MetaContext")
+  override val runsAfter = Set("MetaContextGen")
   override val runsBefore = Set(transform.FirstTransform.name)
   
   val ignore = mutable.Set.empty[Tree]

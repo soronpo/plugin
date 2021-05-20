@@ -2,7 +2,7 @@ import counter.*
 
 final case class Context(
   nameOpt: Option[String], position: Position, lateConstruction: Boolean,
-  clsNameOpt: Option[String], clsPosition : Position
+  clsNameOpt: Option[String], clsPosition : Position, defaultDir : Int = 0
 ) extends MetaContext {
   def setMeta(
     nameOpt: Option[String], position: Position, lateConstruction: Boolean,
@@ -13,5 +13,6 @@ final case class Context(
   ).asInstanceOf[this.type]
   def setName(name : String) : this.type = copy(nameOpt = Some(name)).asInstanceOf[this.type]
   def anonymize : this.type = copy(nameOpt = None).asInstanceOf[this.type]
+  def <> (that : Int) : this.type = copy(defaultDir = that).asInstanceOf[this.type]
 
 }

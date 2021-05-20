@@ -21,12 +21,12 @@ import scala.language.implicitConversions
 import collection.mutable
 import annotation.tailrec
 
-class MetaContextPhase(setting: Setting) extends PluginPhase {
+class MetaContextGenPhase(setting: Setting) extends CommonPhase {
   import tpd._
 
-  val phaseName = "MetaContext"
+  val phaseName = "MetaContextGen"
 
-  override val runsAfter = Set(transform.Pickler.name)
+  override val runsAfter = Set("MetaContextDelegate")
   override val runsBefore = Set(transform.FirstTransform.name)
   var positionCls : ClassSymbol = _
   val treeOwnerMap = mutable.Map.empty[String, Tree]
@@ -43,11 +43,7 @@ class MetaContextPhase(setting: Setting) extends PluginPhase {
     New(positionCls.typeRef, fileNameTree :: lineStartTree :: columnStartTree :: lineEndTree :: columnEndTree :: Nil)
 
   extension (tree : Tree)(using Context) 
-    def unique : String = 
-      val pos = tree.srcPos.startPos
-      val endPos = tree.srcPos.endPos
-      s"${pos.source.path}:${pos.line}:${pos.column}-${endPos.line}:${endPos.column}"
-    def setMeta(nameOpt : Option[String], srcTree : Tree) : Tree = 
+    def setMeta(nameOpt : Option[String], srcTree : Tree) : Tree =
       val nameOptTree = nameOpt match
         case Some(str) =>
           New(defn.SomeClass.typeRef.appliedTo(defn.StringType), Literal(Constant(str)) :: Nil)
@@ -71,28 +67,12 @@ class MetaContextPhase(setting: Setting) extends PluginPhase {
       .appliedToArgs(nameOptTree :: positionTree :: lateConstructionTree :: clsNameOptTree :: clsPositionTree :: Nil)
       .withType(TermRef(tree.tpe, setMetaSym))
 
-  extension (tree : Apply)(using Context) 
-    def replaceArg(fromArg : Tree, toArg : Tree) : Tree =
-      var changed = false
-      val repArgs = tree.args.map {a =>
-        if (a == fromArg) 
-          changed = true
-          toArg
-        else a
-      }
-      tree.fun match
-        case apply : Apply if !changed =>
-          Apply(apply.replaceArg(fromArg, toArg), tree.args)
-        case _ => 
-          Apply(tree.fun, repArgs)
-    
-
   extension (sym : Symbol) def fixedFullName(using Context) : String =
     sym.fullName.toString.replace("._$",".")
 
   extension (name : String) def nameCheck(posTree : Tree)(using Context) : String = {
     val finalName = posTree.symbol.annotations.collectFirst { 
-      case ann if ann.symbol.name.toString == "targetName" => 
+      case ann if ann.symbol.fullName.toString == "scala.annotation.targetName" => 
         ann.argumentConstantString(0).get
     }.getOrElse(name)
     if (!finalName.matches("^[a-zA-Z0-9_]*$"))
@@ -104,13 +84,6 @@ class MetaContextPhase(setting: Setting) extends PluginPhase {
       )
     finalName
   }
-  private object ContextArg: 
-    def unapply(tree : Tree)(using Context) : Option[Tree] = 
-      tree match
-        case Apply(tree, args) => args.collectFirst {
-          case a if a.tpe.typeSymbol.inherits("counter.MetaContext") => a
-        }.orElse(unapply(tree))
-        case _ => None
 
   override def transformApply(tree: Apply)(using Context): Tree = 
     if (!tree.tpe.isContextualMethod && !ignore.contains(tree.unique)) tree match
@@ -152,8 +125,7 @@ class MetaContextPhase(setting: Setting) extends PluginPhase {
 
   @tailrec private def nameValOrDef(tree : Tree, ownerTree : Tree)(using Context) : Unit = 
     tree match 
-      case apply : Apply => 
-        // ignoreInternalApplies(apply)
+      case apply : Apply =>
         treeOwnerMap += (apply.unique -> ownerTree)
       case Block((cls @ TypeDef(tpn, template : Template)) :: _, expr) if cls.symbol.isAnonymousClass => 
         template.parents.foreach(p => treeOwnerMap += (p.unique -> ownerTree))
@@ -192,8 +164,8 @@ class MetaContextPhase(setting: Setting) extends PluginPhase {
 
   override def prepareForUnit(tree: Tree)(using Context): Context = 
     positionCls = requiredClass("counter.Position")
-    if (tree.source.toString.contains("Hello"))
-      println(tree.show) 
+//    if (tree.source.toString.contains("Hello"))
+//      println(tree.show)
     ctx
 
 }
