@@ -70,10 +70,25 @@ class MetaContextPhase(setting: Setting) extends PluginPhase {
   val treeOwnerMap = mutable.Map.empty[String, Tree]
   val contextDefs = mutable.Map.empty[String, Tree]
   val ignore = mutable.Set.empty[String]
+  var lateConstructionStack = List(false)
 
   extension (sym : Symbol) def fixedFullName(using Context) : String =
     sym.fullName.toString.replace("._$",".")
 
+  extension (name : String) def nameCheck(posTree : Tree)(using Context) : String = {
+    val finalName = posTree.symbol.annotations.collectFirst { 
+      case ann if ann.symbol.name.toString == "targetName" => 
+        ann.argumentConstantString(0).get
+    }.getOrElse(name)
+    if (!finalName.matches("^[a-zA-Z0-9_]*$"))
+      report.error(
+        s"""Unsupported DSL member name $finalName.
+           |Only alphanumric or underscore characters are supported.
+           |You can leave the Scala name as-is and add @targetName("newName") annotation""".stripMargin,
+        posTree.srcPos
+      )
+    finalName
+  }
   private object ContextArg: 
     def unapply(tree : Tree)(using Context) : Option[Tree] = 
       tree match
@@ -86,11 +101,14 @@ class MetaContextPhase(setting: Setting) extends PluginPhase {
     if (!tree.tpe.isContextualMethod && !ignore.contains(tree.unique)) tree match
       case ContextArg(argTree) =>
         val sym = argTree.symbol
+        val lateConstruction = lateConstructionStack.head
         treeOwnerMap.get(tree.unique) match 
           case Some(t : ValDef) =>
-            tree.replaceArg(argTree, argTree.setMeta(Some(t.name.toString), tree.srcPos, false))
+            if (t.mods.is(Flags.Mutable)) 
+              report.warning("Variable modifier for DSL constructed values is highly discouraged!\nConsider changing to `val`.", t.srcPos)
+            tree.replaceArg(argTree, argTree.setMeta(Some(t.name.toString.nameCheck(t)), tree.srcPos, lateConstruction))
           case Some(t : TypeDef) if t.name.toString.endsWith("$") => 
-            tree.replaceArg(argTree, argTree.setMeta(Some(t.name.toString.dropRight(1)), tree.srcPos, false))
+            tree.replaceArg(argTree, argTree.setMeta(Some(t.name.toString.dropRight(1).nameCheck(t)), tree.srcPos, lateConstruction))
           case Some(t)  =>  //Def or Class
             contextDefs.get(sym.fixedFullName) match
               case Some(ct) if ct != t =>
@@ -98,7 +116,7 @@ class MetaContextPhase(setting: Setting) extends PluginPhase {
               case _ => //do nothing
             tree
           case _ => //Anonymous
-            tree.replaceArg(argTree, argTree.setMeta(None, tree.srcPos, false))
+            tree.replaceArg(argTree, argTree.setMeta(None, tree.srcPos, lateConstruction))
       case _ => tree
     else tree
 
@@ -108,8 +126,16 @@ class MetaContextPhase(setting: Setting) extends PluginPhase {
       case template : Template if !tree.symbol.isAnonymousClass => 
         template.parents.foreach(p => treeOwnerMap += (p.unique -> tree))
         addContextDef(tree)
+        lateConstructionStack = false :: lateConstructionStack
+      case template : Template if tree.symbol.isAnonymousClass => 
+        lateConstructionStack = true :: lateConstructionStack
       case _ => 
     ctx
+
+  override def transformTypeDef(tree: TypeDef)(using Context): Tree = 
+    lateConstructionStack = lateConstructionStack.drop(1)
+    tree
+
 
   @tailrec private def nameValOrDef(tree : Tree, ownerTree : Tree)(using Context) : Unit = 
     tree match 

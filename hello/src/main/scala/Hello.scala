@@ -1,7 +1,8 @@
 import counter.*
+import annotation.targetName
 object Hello extends App {
-  class Bar(using Context) extends OnCreateEvents :
-    val nameOpt = summon[Context].nameOpt
+  class Bar(using val ctx : Context) extends OnCreateEvents :
+    val nameOpt = ctx.nameOpt
     def +(that: Bar)(using Context): Bar = new Plus(this, that)
 
   class Plus(lhs: Bar, rhs: Bar)(using Context) extends Bar
@@ -24,9 +25,11 @@ object Hello extends App {
 
     case object FooCaseObj extends Foo(1, 2)
 
-    val fooCls = new Foo(1, 2)
+    @targetName("foo")
+    val -- = new Foo(1, 2)
     val fooCls2 = new Foo(1, 2) {
       val i = 1
+      val insider = new Bar
     }
     val internalFoo = new Internal.Foo(1, 2)
     val nb1 = newBar
