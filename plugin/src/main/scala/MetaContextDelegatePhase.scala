@@ -30,10 +30,6 @@ class MetaContextDelegatePhase(setting: Setting) extends CommonPhase {
   override val runsBefore = Set("MetaContextGen")
   val ignore = mutable.Set.empty[String]
 
-  extension (tree : Apply)(using Context)
-    def isContextDelegate : Boolean = 
-      tree.symbol.annotations.exists(_.symbol.name.toString == "metaContextDelegate")
-  
   override def transformApply(tree: Apply)(using Context): Tree =
     if (tree.tpe.isParameterless && tree.isContextDelegate) tree match 
       case ApplyFunArgs(fun, ((lhs : Apply) :: Nil) :: rhsArgs :: Nil) => 
@@ -50,8 +46,8 @@ class MetaContextDelegatePhase(setting: Setting) extends CommonPhase {
 
 
   override def prepareForUnit(tree: Tree)(using Context): Context = 
-//    if (tree.source.toString.contains("Hello"))
-//      println(tree.show) 
+    // if (tree.source.toString.contains("Hello"))
+      // println(tree.show) 
     ctx
 
 }

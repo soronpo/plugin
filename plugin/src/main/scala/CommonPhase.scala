@@ -49,6 +49,10 @@ abstract class CommonPhase extends PluginPhase:
         case _ =>
           Apply(tree.fun, repArgs)
 
+  extension (tree : Apply)(using Context)
+    def isContextDelegate : Boolean = 
+      tree.symbol.annotations.exists(_.symbol.name.toString == "metaContextDelegate")
+  
   object ContextArg:
     def unapply(tree : Tree)(using Context) : Option[Tree] =
       tree match

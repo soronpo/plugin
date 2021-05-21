@@ -27,7 +27,7 @@ class OnCreateEventsPhase(setting: Setting) extends CommonPhase {
 
   val phaseName = "OnCreateEvents"
 
-  override val runsAfter = Set("MetaContextGen")
+  override val runsAfter = Set("CustomIf")
   override val runsBefore = Set(transform.FirstTransform.name)
   
   val ignore = mutable.Set.empty[Tree]
@@ -61,9 +61,9 @@ class OnCreateEventsPhase(setting: Setting) extends CommonPhase {
     else tree
 
   override def prepareForUnit(tree: Tree)(using Context): Context = 
-//    if (tree.source.toString.contains("Hello"))
-//      println(tree.show)
-    ctx
+   if (tree.source.toString.contains("Hello"))
+     println(tree.show) 
+   ctx
 
 }
 
