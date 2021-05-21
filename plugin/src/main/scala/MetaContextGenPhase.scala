@@ -29,6 +29,8 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase {
   override val runsAfter = Set("MetaContextDelegate")
   override val runsBefore = Set(transform.FirstTransform.name)
   var positionCls : ClassSymbol = _
+  var metaContextCls : ClassSymbol = _
+  var setMetaSym : Symbol = _
   val treeOwnerMap = mutable.Map.empty[String, Tree]
   val contextDefs = mutable.Map.empty[String, Tree]
   val ignore = mutable.Set.empty[String]
@@ -49,7 +51,6 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase {
           New(defn.SomeClass.typeRef.appliedTo(defn.StringType), Literal(Constant(str)) :: Nil)
         case None =>
           ref(defn.NoneModule.termRef)
-      val setMetaSym = tree.symbol.requiredMethod("setMeta")
       val clsTree = clsStack.head
       val lateConstruction = 
         clsTree.name.toString.contains("$") && clsTree.symbol.inherits("counter.LateConstruction") && 
@@ -164,6 +165,9 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase {
 
   override def prepareForUnit(tree: Tree)(using Context): Context = 
     positionCls = requiredClass("counter.Position")
+    metaContextCls = requiredClass("counter.MetaContext")
+    setMetaSym = metaContextCls.requiredMethod("setMeta")
+
 //    if (tree.source.toString.contains("Hello"))
 //      println(tree.show)
     ctx
