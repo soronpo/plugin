@@ -35,7 +35,7 @@ abstract class CommonPhase extends PluginPhase:
       s"${pos.source.path}:${pos.line}:${pos.column}-${endPos.line}:${endPos.column}"
 
   extension (tree : Apply)(using Context)
-    def replaceArg(fromArg : Tree, toArg : Tree) : Tree =
+    def replaceArg(fromArg : Tree, toArg : Tree) : Apply =
       var changed = false
       val repArgs = tree.args.map {a =>
         if (a == fromArg)
@@ -56,3 +56,13 @@ abstract class CommonPhase extends PluginPhase:
           case a if a.tpe.typeSymbol.inherits("counter.MetaContext") => a
         }.orElse(unapply(tree))
         case _ => None
+
+  object ApplyFunArgs:
+    @tailrec private def recurUnapply(fun : Tree, args : List[List[Tree]])(using Context) : (Tree, List[List[Tree]]) = 
+      fun match
+        case Apply(f, a) => recurUnapply  (f, a :: args)
+        case f => (f, args)
+    def unapply(tree : Apply)(using Context) : Option[(Tree, List[List[Tree]])] = 
+      Some(recurUnapply(tree, Nil))
+    def apply(fun : Tree, args : List[List[Tree]])(using Context) : Apply = 
+      fun.appliedToArgss(args).asInstanceOf[Apply]

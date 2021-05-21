@@ -61,8 +61,8 @@ class OnCreateEventsPhase(setting: Setting) extends CommonPhase {
     else tree
 
   override def prepareForUnit(tree: Tree)(using Context): Context = 
-    if (tree.source.toString.contains("Hello"))
-      println(tree.show) 
+//    if (tree.source.toString.contains("Hello"))
+//      println(tree.show)
     ctx
 
 }

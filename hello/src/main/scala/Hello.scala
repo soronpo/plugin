@@ -13,6 +13,12 @@ object Hello extends App {
   extension (bar: Bar)
     def +++(that: Bar)(using Context): Bar = new Plus(bar, that)
 
+  extension (bar : Bar)
+    @metaContextDelegate
+    def <> (that : Int) : Bar = ???
+    @metaContextDelegate
+    def setName(name : String) : Bar = ???
+
   class Foo(arg1: Int, arg2: Int)(using Context) extends Bar
 
   object Internal:
@@ -35,7 +41,7 @@ object Hello extends App {
       val insider = new Bar
     }
     val internalFoo = new Internal.Foo(1, 2)
-    val nb1 = newBar
+    val nb1 = newBar setName "NB1"
     val nb2 = newBar
     val plus = nb1 + nb2
     val plus3 = nb1 + nb2 + nb1

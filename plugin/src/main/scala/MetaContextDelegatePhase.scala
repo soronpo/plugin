@@ -33,27 +33,25 @@ class MetaContextDelegatePhase(setting: Setting) extends CommonPhase {
   extension (tree : Apply)(using Context)
     def isContextDelegate : Boolean = 
       tree.symbol.annotations.exists(_.symbol.name.toString == "metaContextDelegate")
-
+  
   override def transformApply(tree: Apply)(using Context): Tree =
-    if (tree.tpe.isParameterless)
-      if (tree.isContextDelegate)
-        println(tree)
-        // tree match
-          // case Apply(Apply(methodIdent,List(Apply(Apply(Select(New(Ident(Bar)),<init>),List()),List(Ident(x$1))))),methodArgs)
-    tree
+    if (tree.tpe.isParameterless && tree.isContextDelegate) tree match 
+      case ApplyFunArgs(fun, ((lhs : Apply) :: Nil) :: rhsArgs :: Nil) => 
+        lhs match 
+          case ContextArg(argTree) =>
+            val clsSym = argTree.tpe.typeSymbol
+            val methodSym = clsSym.requiredMethod(fun.symbol.name.toString)
+            val delegated = argTree.select(methodSym).appliedToArgs(rhsArgs)
+            lhs.replaceArg(argTree, delegated)
+          case _ =>
+            tree
+      case _ => tree
+    else tree
 
-  override def prepareForTypeDef(tree: TypeDef)(using Context): Context =
-    ctx
-
-  override def transformTypeDef(tree: TypeDef)(using Context): Tree = 
-    tree
-
-  override def prepareForValDef(tree: ValDef)(using Context): Context =
-    ctx
 
   override def prepareForUnit(tree: Tree)(using Context): Context = 
-    if (tree.source.toString.contains("Hello"))
-      println(tree.show) 
+//    if (tree.source.toString.contains("Hello"))
+//      println(tree.show) 
     ctx
 
 }
